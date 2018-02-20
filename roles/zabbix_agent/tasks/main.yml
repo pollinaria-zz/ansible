@@ -1,0 +1,55 @@
+
+---
+- name: Get zabbix repository configuration package
+  shell: wget -P /tmp http://repo.zabbix.com/zabbix/3.2/ubuntu/pool/main/z/zabbix-release/zabbix-release_3.2-1+xenial_all.deb
+
+- name:  Install zabbix repository configuration package
+  shell: dpkg -i /tmp/zabbix-release_3.2-1+xenial_all.deb
+
+- name: Update repositories
+  apt:
+    update_cache: yes
+
+- name: Install zabbix agent
+  apt:
+    name: zabbix-agent
+    state: latest
+
+- name: Detele existing zabbix config file
+  file:
+    state: absent
+    path: /etc/zabbix/zabbix_agentd.conf
+
+- name: Create new zabbix config file
+  template: 
+    src: zabbix_agentd.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.conf
+    owner: zabbix
+    group: zabbix
+    mode: 0644
+
+- name: Make folder for zabbix configs
+  file:
+    path: /etc/zabbix/zabbix_agentd.d
+    owner: zabbix
+    group: zabbix
+    state: directory
+
+- name: Delete old folder for configs
+  command: rm -rf /etc/zabbix/zabbix_agentd.conf.d
+
+- name: Make log file
+  file:
+    path: /var/log/zabbix/zabbix_agentd.log
+    owner: zabbix
+    group: zabbix
+    state: touch  
+
+- name: Add zabbix-agent to autostart 
+  command: systemctl enable zabbix-agent
+
+- name: Restart zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted

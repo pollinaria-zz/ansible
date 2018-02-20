@@ -1,0 +1,25 @@
+---
+
+- name: Ensure directory for confifurations files exists
+  file: 
+    path: /etc/zabbix/zabbix_agentd.d/
+    state: directory
+
+
+- name: Make a net_interfaces_link.conf file
+  file:
+    state: touch
+    path: /etc/zabbix/zabbix_agentd.d/net_interfaces_link.conf
+
+- name: Add UserParameter in file
+  lineinfile:
+     dest: /etc/zabbix/zabbix_agentd.d/net_interfaces_link.conf
+     line: 'UserParameter=net.if.link[*],if [ -r /sys/class/net/$1/carrier ] ; then cat /sys/class/net/$1/carrier ; else echo 0 ; fi'
+
+- name: Restart zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted
+
+

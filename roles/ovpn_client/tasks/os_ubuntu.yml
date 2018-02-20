@@ -1,0 +1,27 @@
+---
+
+- name: Change OpenVpn config
+  lineinfile: 
+    dest: /etc/openvpn/{{ hostname }}.conf
+    regexp: '^#script-security 2'
+    insertbefore: BOF
+    line: 'script-security 2'
+    state: present
+
+
+- name: Change OpenVpn config
+  lineinfile: 
+    dest: /etc/openvpn/{{ hostname }}.conf
+    regexp: '^#up /etc/openvpn/update-resolv-conf'
+    insertbefore: BOF
+    line: 'up /etc/openvpn/update-resolv-conf'
+    state: present
+
+
+- name: Change OpenVpn config
+  lineinfile: 
+    dest: /etc/openvpn/{{ hostname }}.conf
+    regexp: '^#down /etc/openvpn/update-resolv-conf'
+    insertbefore: BOF
+    line: 'down /etc/openvpn/update-resolv-conf'
+    state: present

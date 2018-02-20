@@ -1,0 +1,42 @@
+
+---
+
+- name: Ensure directory for confifurations files exists
+  file: 
+    path: /etc/zabbix/zabbix_agentd.d/
+    state: directory
+
+- name: Ensure directory for scripts exists
+  file: 
+    path: /etc/zabbix/scripts/
+    state: directory
+
+
+- name: Create a ufw_status.conf file
+  file: 
+    path: /etc/zabbix/zabbix_agentd.d/ufw_status.conf
+    state: touch
+
+
+- name: Create a handler for zabbix-agent
+  file: 
+    path: /etc/zabbix/scripts/ufw.status
+    state: touch
+
+
+- name: Change a crontab file
+  lineinfile:
+    dest: /etc/crontab
+    line: '*/2  *    * * *   root    ufw status | grep "Status: active" > /etc/zabbix/scripts/ufw.status'
+
+- name: Add UserParameter in file
+  lineinfile:
+     dest: /etc/zabbix/zabbix_agentd.d/ufw_status.conf
+     line: 'UserParameter=ufw.status,if [ $(stat -c%s /etc/zabbix/scripts/ufw.status) -gt "0" ] ; then echo 1 ; else echo 0 ; fi'
+
+- name: Restart zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted
+

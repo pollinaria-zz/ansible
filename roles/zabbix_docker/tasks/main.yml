@@ -1,0 +1,31 @@
+---
+
+- name: Make a directory for zabbix modules
+  file: 
+    path: /etc/zabbix/modules
+    state: directory
+
+- name: Add module path in config
+  lineinfile: 
+    dest: /etc/zabbix/zabbix_agentd.conf
+    line: '{{ item }}'
+  with_items:
+    - 'LoadModulePath=/etc/zabbix/modules'
+    - 'LoadModule=zabbix_module_docker.so'
+
+- name: Copy docker module for zabbix agent (v.3.2)
+  copy:
+    src: roles/zabbix_docker/files/zabbix_module_docker.so
+    dest: /etc/zabbix/modules/
+    owner: zabbix
+    group: zabbix
+    mode: 0644
+
+- name: Get additional docker permissions
+  shell: usermod -aG docker zabbix
+
+- name: Restart zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted

@@ -1,0 +1,61 @@
+
+---
+- name: Install zabbix agent
+  apt:
+    name: zabbix-sender
+    state: latest
+
+- name: Ensure directory for confifurations files exists
+  file: 
+    path: /etc/zabbix/zabbix_agentd.d/
+    state: directory
+
+- name: Ensure general directory for scripts exists
+  file: 
+    path: /etc/zabbix/scripts/
+    state: directory
+
+- name: Make directory for RabbitMQ scripts
+  file: 
+    path: /etc/zabbix/scripts/rabbitmq/
+    state: directory
+    owner: zabbix
+
+
+- name: Create a zabbix-rabbitmq.conf file
+  copy: 
+    src: files/zabbix-rabbitmq.conf
+    dest: /etc/zabbix/zabbix_agentd.d/
+    owner: zabbix
+
+
+- name: Copy scripts for RabbitMQ
+  copy: 
+    src: files/{{ item }}
+    dest: /etc/zabbix/scripts/rabbitmq/
+    owner: zabbix
+    mode: 0755
+  with_items: 
+    - list_rabbit_nodes.sh
+    - list_rabbit_queues.sh
+    - list_rabbit_shovels.sh
+    - rabbitmq-status.sh
+    - api.py
+    - .rab.auth
+
+- name: Create a user for monitoring
+  command: rabbitmqctl add_user zabbix zabbixqmobi
+
+- name: Ser tags for the new user
+  command: rabbitmqctl set_user_tags zabbix monitoring
+
+- name: Set permitions for the new user
+  command: rabbitmqctl set_permissions -p / zabbix '^aliveness-test$' '^amq\.default$' '^aliveness-test$'
+
+- name: Restart zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted
+
+

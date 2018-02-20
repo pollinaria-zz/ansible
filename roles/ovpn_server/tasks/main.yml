@@ -1,0 +1,172 @@
+---
+- name: Install openvpn and easy-rsa
+  package: >
+    name={{ item }}
+    state=latest
+  with_items: 
+    - openvpn
+    - easy-rsa
+
+- name: Make a new directory for easy-rsa
+  shell: make-cadir /root/openvpn-ca
+
+
+- name: Detele existing vars, build-ca. build-key and build-key-server files
+  file:
+    state: absent
+    path: "{{ item }}" 
+  with_items:
+    - /usr/share/easy-rsa/build-ca
+    - /usr/share/easy-rsa/build-key-server
+    - /root/openvpn-ca/vars
+    - /usr/share/easy-rsa/build-key
+
+- name: Create new build-ca, build-key and build-key-server files
+  copy:
+    src: "{{ item }}"
+    dest: /usr/share/easy-rsa/
+    mode: 0755
+  with_items: 
+    - roles/ovpn_server/files/build-ca
+    - roles/ovpn_server/files/build-key-server
+    - roles/ovpn_server/files/build-key
+
+- name: Create  a new vars file
+  copy:
+    src: roles/ovpn_server/files/vars
+    dest: /root/openvpn-ca/
+    mode: 0755
+
+
+- name: Copy vpn script to server
+  copy:
+    src: roles/ovpn_server/files/vpn.sh
+    dest: /tmp/
+    mode: 0755
+
+- name: Execute vpn script 
+  shell: bash /tmp/vpn.sh
+
+
+- name: Copy files from home directory to /etc/openvpn
+  shell: cp /root/openvpn-ca/keys/{{ item }} /etc/openvpn/
+  with_items: 
+    - ca.crt
+    - ca.key
+    - server.crt
+    - server.key
+    - ta.key
+    - dh2048.pem
+
+- name: Create server config
+  template: 
+    src: server.conf.j2
+    dest: /etc/openvpn/server.conf
+
+
+- name: Create directory for clients' configs
+  file:
+    path: /usr/local/etc/ccd/
+    state: directory
+    mode: 0755
+
+
+- name: Allow forwarding of traffic
+  lineinfile: 
+    dest: /etc/sysctl.conf
+    regexp: '^#net.ipv4.ip_forward=1'
+    insertbefore: BOF
+    line: 'net.ipv4.ip_forward=1'
+
+
+- name: Restore settings
+  shell: sysctl -p
+
+- name: Change UFW rules for forwarding
+  lineinfile: 
+    dest: /etc/ufw/before.rules
+    line: '{{ item }}'
+    insertbefore: '^# rules.before'
+    state: present
+  with_items:
+    - '# START OPENVPN RULES'
+    - '# NAT table rules' 
+    - '*nat'
+    - ':POSTROUTING ACCEPT [0:0]'
+    - '# Allow traffic from OpenVPN client to eth0'
+    - '-A POSTROUTING -s {{ vpnnetwork_full }} -o eth0 -j MASQUERADE'
+    - 'COMMIT'
+    - '# END OPENVPN RULES'
+
+- name: Allow forward_policy
+  lineinfile: 
+    dest: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY="DROP"'
+    insertbefore: BOF
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+    state: present
+
+- name: Add OpenVPN in UFW
+  ufw:
+    rule: allow
+    port: 1194
+    proto: tcp
+
+- name: Start OpenVPN service
+  service: 
+    name: openvpn@server
+    enabled: yes
+    state: started
+
+- name: Create directory for clients' configs
+  file:
+    path: /root/client-configs/files/
+    state: directory
+    mode: 0700
+
+- name: Create client's base config
+  template: 
+    src: base.conf.j2
+    dest: /root/client-configs/base.conf
+
+- name: Copy make_config.sh to server
+  copy:
+    src: files/make_config.sh
+    dest: /root/client-configs/make_config.sh
+    mode: 0755
+
+- name: Create clients' configiration files
+  file: 
+     path: /usr/local/etc/ccd/{{ hostvars[item].hostname }}
+     state: touch
+  with_items: "{{ hostvars }}"
+  when: hostvars[item].ovpn_ip is defined
+
+- name: Add clients' configirations in file
+  lineinfile: 
+    dest: /usr/local/etc/ccd/{{ hostvars[item].hostname }}
+    line: 'ifconfig-push {{ hostvars[item].ovpn_ip }} {{ hostvars[item].ovpn_ip2 }}'
+  with_items: "{{ hostvars }}"
+  when: hostvars[item].ovpn_ip is defined
+
+
+- name: Copy script for building keys and configs
+  copy:
+    src: roles/ovpn_server/files/config_helper.sh
+    dest: /root/client-configs/config_helper.sh
+    force: yes
+    mode: 0755
+
+- name: Build keys and configs for clients
+  shell: bash /root/client-configs/config_helper.sh {{ hostvars[item].hostname }}
+  with_items: "{{ hostvars }}"
+  when: hostvars[item].ovpn_ip is defined
+
+
+- name: Copy clients' full conf files
+  fetch:
+    src: /root/client-configs/files/{{ hostvars[item].hostname }}.ovpn
+    dest: vpn_files/
+    flat: yes
+  with_items: "{{ hostvars }}"
+  when: hostvars[item].ovpn_ip is defined

@@ -1,0 +1,29 @@
+---
+- name: Install openvpn
+  package:
+    name: openvpn
+    state: latest
+
+- name: Add OpenVPN in UFW
+  ufw:
+    rule: allow
+    src: '{{ vpnnetwork_full }}'
+
+- name: Copy full config file from local host
+  copy:
+    src: vpn_files/{{ hostname }}.ovpn
+    dest: /etc/openvpn/{{ hostname }}.conf
+
+- name: Change config 
+  include_tasks: os_ubuntu.yml
+  when: (ansible_os_family == "Debian")
+
+
+- name: Start OpenVPN service
+  service: 
+    name: openvpn@{{ hostname }}
+    enabled: yes
+    state: started
+
+- name: Enable OpenVPN service
+  shell: systemctl enable openvpn@{{ hostname }}

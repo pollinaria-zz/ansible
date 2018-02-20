@@ -1,0 +1,7 @@
+---
+- name: Allow internal VPN connections
+  ufw:
+    rule: allow
+    src: {{ vpnnetwork_full }}
+
+

@@ -1,0 +1,28 @@
+---
+- name: Install ufw
+  apt: package=ufw state=present
+
+- name: Allow zabbix-agent connections in firewall
+  ufw:
+    rule: allow
+    src:  '{{ zabbix_ip }}'
+    port: "10050:10051"
+    proto: tcp
+
+- name: Allow backup connections in firewall
+  ufw:
+    rule: allow
+    src:  '{{ backup_ip }}'
+
+
+- name: Configure ufw defaults
+  ufw: direction={{ item.direction }} policy={{ item.policy }}
+  with_items:
+     - { direction: 'incoming', policy: 'deny' }
+     - { direction: 'outgoing', policy: 'allow' }
+  notify:
+     - restart ufw
+
+- name: Enable ufw
+  ufw: state=enabled
+

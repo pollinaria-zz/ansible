@@ -22,19 +22,6 @@ Zabbix-Template-App-Docker.xml and modules for zabbix-agent could be found here:
 ## File Hierarchy
 ```
 .
-├── hosts
-├── vpn_hosts_alpaca
-├── vpn_hosts_tracker
-├── add_ssh.yml
-├── ovpn_client.yml
-├── ovpn_server.yml
-├── ufw.yml
-├── vpn.yml
-├── zbx_agent.yml
-├── zbx_rabbitmq.yml
-├── group_vars
-│   └── all
-│
 └── roles
     ├── ovpn_client
     │   └── tasks
